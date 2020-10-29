@@ -23,6 +23,7 @@ int main(void)
     //creer la toile pour dessiner
     RenderTexture2D dessin = LoadRenderTexture(widthDessin, heightDessin);
     
+    //initialise le fond de la zone de dessin à blanc
     BeginTextureMode(dessin);
     ClearBackground(WHITE);
     EndTextureMode();
@@ -64,12 +65,14 @@ int main(void)
     
     //---------------- les curseurs -----------------------
     
+    //initialisation du tableu contenant le Image des curseurs
     Image curseur[NB_CURSEUR];
     curseur[0] = LoadImage("png/001-cursor.png");
     curseur[1] = LoadImage("png/001-eraser.png");
     curseur[2] = LoadImage("png/001-paint-bucket.png");
     curseur[3] = LoadImage("png/001-pipette.png");
     
+    //convertissement des curseurs en texture
     Texture2D curseurTexture[NB_CURSEUR];
     for (int i = 0; i < NB_CURSEUR; i++)
     {
@@ -113,12 +116,12 @@ int main(void)
     Rectangle couleurDroit = { screenWidth - 421 - 8, 10, 65, 65 };
     Rectangle couleurGauche = { screenWidth - 421 - 18 - 65, 10, 65, 65 };
     
-    // variables
-
-    int couleurSousSouris = -1;
-    int couleurSelectionneeDroit = 22;
-    int couleurSelectionneeGauche = 21;
+    // variable
+    int couleurSousSouris = -1; // pas de couleur
+    int couleurSelectionneeDroit = 22; // noir
+    int couleurSelectionneeGauche = 21; // blanc
     
+    // couleur des boutons de la souris
     Color cDroit = choixCouleur[couleurSelectionneeDroit];
     Color cGauche = choixCouleur[couleurSelectionneeGauche];
 
@@ -128,6 +131,7 @@ int main(void)
     
     //souris
     Vector2 positionSouris = { 500.0f, 400.0f };
+    //souris en mémoire
     Vector2 positionAvant = positionSouris;
     
     //---------------------les differents modes---------------------
@@ -140,25 +144,33 @@ int main(void)
         else modeOutils[i] = false;
     }
     
-    int outilsSousSouris = -1;
-    int outilsSelectionnee = 2;
+    int outilsSousSouris = -1; // -1 pas d'outils
+    int outilsSelectionnee = 2; // initialisation avec le pinceau selectionné
     
     //--------------------le mode camera-----------------------
     
+    //initialisation de la camera 
     Camera2D deplacement = { 0 };
-    deplacement.target = (Vector2){ (xDessin + widthDessin/2) * 1.0f, (yDessin + heightDessin/2) * 1.0f };
+    deplacement.target = (Vector2){ //positionnement au milieu de la zone de dessin
+    (xDessin + widthDessin/2) * 1.0f, 
+    (yDessin + heightDessin/2) * 1.0f };
     deplacement.offset = (Vector2){ screenWidth/2, screenHeight/2 };
     deplacement.rotation = 0.0f;
     deplacement.zoom = 1.0f;
     
-    float dessinZoomX = xDessin * deplacement.zoom;
-    float dessinZoomY = yDessin * deplacement.zoom;
+    // calcule la position et la taille de la zone de travail en prenant en compte le zoom
     float dessinZoomWidth = widthDessin * deplacement.zoom;
     float dessinZoomHeight = heightDessin * deplacement.zoom;
+    float dessinZoomX = (screenWidth - dessinZoomWidth) / 2;
+    float dessinZoomY = (screenHeight - dessinZoomHeight) / 2;
     
+    //target en mémoire 
     Vector2 targetAvant = deplacement.target;
     
-    Vector2 posSourisDessin = { ( positionSouris.x - (screenWidth - 50 - dessinZoomWidth)/ 2 ) / deplacement.zoom, ( positionSouris.y - (screenHeight - 50 - dessinZoomHeight) / 2) / deplacement.zoom };
+    // calcule la position de la souris 
+    Vector2 posSourisDessin = { 
+     (positionSouris.x - (1 - deplacement.zoom) * widthDessin / 2) / deplacement.zoom, 
+     (positionSouris.y  - (1 - deplacement.zoom) * heightDessin / 2) / deplacement.zoom };
     Vector2 posAvantSourisDessin = posSourisDessin;
     
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
@@ -180,42 +192,43 @@ int main(void)
                 outilsSousSouris = i; 
                 
                 //choix de l'outils avec la souris
-                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) outilsSelectionnee = i;
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) outilsSelectionnee = i;
                 break; // sort de la boucle, gain de temps
             }
-            else outilsSousSouris = -1;
+            else outilsSousSouris = -1; // aucun outils
         }
         
+        //action entre la souris et les couleurs
         for (int i = 0; i < NB_COULEUR; i ++)
         {
             if (CheckCollisionPointRec(positionSouris, couleurRec[i]))
             {
                 couleurSousSouris = i;
-                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) couleurSelectionneeGauche = i;
-                else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) couleurSelectionneeDroit = i;
+                
+                //choix des couleurs en fonctions du bouton de la souris
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) couleurSelectionneeGauche = i;
+                else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON) && GetGestureDetected() == GESTURE_TAP) couleurSelectionneeDroit = i;
                 break;
             }
-            else couleurSousSouris = -1;
+            else couleurSousSouris = -1; // aucune couleur
         }
+        // récupération des couleurs choisies
         cDroit = choixCouleur[couleurSelectionneeDroit];
         cGauche = choixCouleur[couleurSelectionneeGauche];
         
-        // zoom
-        deplacement.zoom += ((float)GetMouseWheelMove()*0.05f);
         
-        if (deplacement.zoom > 3.0f) deplacement.zoom = 3.0f;
-        else if (deplacement.zoom < 0.1f) deplacement.zoom = 0.1f;
-        
+        // action pour un click gauche appuyé
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && (GetGestureDetected() == GESTURE_DRAG))
         {   
-            if (outilsSelectionnee == 1)
+            if (outilsSelectionnee == 1) // pour l'outils deplacement
             {
+                
                 deplacement.target.x = targetAvant.x + (positionAvant.x - positionSouris.x);
                 deplacement.target.y = targetAvant.y + (positionAvant.y - positionSouris.y);
             }
             
-            posSourisDessin.x = ( positionSouris.x - (screenWidth - 50 - dessinZoomWidth)/ 2 ) / deplacement.zoom;
-            posSourisDessin.y = ( positionSouris.y - (screenHeight - 50 - dessinZoomHeight) / 2) / deplacement.zoom;
+            posSourisDessin.x =  (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
+            posSourisDessin.y =  (positionSouris.y - (screenHeight - heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
             
             if(CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }))
             {
@@ -225,18 +238,27 @@ int main(void)
                     case 2 :
                         BeginTextureMode(dessin);
                         DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cGauche);
-                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, cGauche);
+                        DrawLineEx(posAvantSourisDessin, posSourisDessin,2 * taillePeinceau, cGauche);
                         EndTextureMode();
                         break;
                         
                     case 3 :
+                        BeginTextureMode(dessin);
+                        DrawRectangle(posSourisDessin.x - taillePeinceau/2, posSourisDessin.y - taillePeinceau/2,  taillePeinceau, taillePeinceau, cGauche);
+                        DrawLineEx(posAvantSourisDessin, posSourisDessin, taillePeinceau, cGauche);
+                        EndTextureMode();
                         break;
                         
                     case 4 :
+                        BeginTextureMode(dessin);
+                        DrawCircle(posSourisDessin.x, posSourisDessin.y,  taillePeinceau, WHITE);
+                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, WHITE);
+                        EndTextureMode();
                         break;
                         
                         
                     case 5 :
+                        
                         break;
                         
                     case 6 :
@@ -248,7 +270,6 @@ int main(void)
         
         if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON) && (GetGestureDetected() == GESTURE_DRAG))
         {   
-    
             if(CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }))
             {
                 switch (outilsSelectionnee)
@@ -256,36 +277,47 @@ int main(void)
   
                     case 2 :
                         BeginTextureMode(dessin);
-                        DrawCircle(positionSouris.x, positionSouris.y - 2 * yDessin, taillePeinceau, cDroit );
-                        DrawLineEx(positionAvant, positionSouris, taillePeinceau, cDroit);
+                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cDroit);
+                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, cDroit);
                         EndTextureMode();
                         break;
                         
                     case 3 :
+                        BeginTextureMode(dessin);
+                        DrawRectangle(posSourisDessin.x, posSourisDessin.y - taillePeinceau,  taillePeinceau, taillePeinceau, cDroit);
+                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, cDroit);
+                        EndTextureMode();
                         break;
-                        
-                    case 4 :
-                        break;
-                        
-                        
-                    case 5 :
-                        break;
-                        
-                    case 6 :
-                        break;
-                    
                 }
             }
         }
+        
+        //actions de la mollette de la souris
+        if (outilsSelectionnee == 1)
+        {
+            // zoom
+            deplacement.zoom += ((float)GetMouseWheelMove()*0.05f);
+            
+            if (deplacement.zoom > 3.0f) deplacement.zoom = 3.0f;
+            else if (deplacement.zoom < 0.1f) deplacement.zoom = 0.1f;
+        }
+        else 
+        {
+            //taille du peinceau
+            taillePeinceau += GetMouseWheelMove()*-5;
+            if (taillePeinceau < 2) taillePeinceau = 2;
+            if (taillePeinceau > 50) taillePeinceau = 50;
+        }
+            
         
         dessinZoomWidth = widthDessin * deplacement.zoom;
         dessinZoomHeight = heightDessin * deplacement.zoom;
         
         dessinZoomX = (screenWidth - dessinZoomWidth) / 2;
-        dessinZoomY = (screenHeight - dessinZoomHeight) /2;
+        dessinZoomY = (screenHeight - dessinZoomHeight) / 2;
         
-        posSourisDessin.x = ( positionSouris.x - (screenWidth - 50 - dessinZoomWidth)/ 2 ) / deplacement.zoom;
-        posSourisDessin.y = ( positionSouris.y - (screenHeight - 50 - dessinZoomHeight) / 2) / deplacement.zoom;
+        posSourisDessin.x = (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
+        posSourisDessin.y = (positionSouris.y - (screenHeight -  heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
         
         posAvantSourisDessin = posSourisDessin;
         
@@ -324,8 +356,8 @@ int main(void)
                         break;
                     
                     case 3 :
-                        if(IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) DrawRectangleLines(positionSouris.x, positionSouris.y, taillePeinceau, taillePeinceau, cDroit);
-                        else DrawRectangleLines(GetMouseX() - taillePeinceau/2, GetMouseY() - taillePeinceau/2, taillePeinceau, taillePeinceau, cGauche);
+                        if(IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) DrawRectangleLines(positionSouris.x - taillePeinceau/2, positionSouris.y - taillePeinceau/2, taillePeinceau, taillePeinceau, cDroit);
+                        else DrawRectangleLines(positionSouris.x - taillePeinceau/2, positionSouris.y - taillePeinceau/2, taillePeinceau , taillePeinceau, cGauche);
                         break;
                     
                     case 4 :
