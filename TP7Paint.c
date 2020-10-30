@@ -3,6 +3,7 @@
 #define NB_OUTILS  7
 #define NB_COULEUR 24
 #define NB_CURSEUR 4
+#define HISTORIQUE 11
 
 int main(void)
 {
@@ -173,6 +174,26 @@ int main(void)
      (positionSouris.y  - (1 - deplacement.zoom) * heightDessin / 2) / deplacement.zoom };
     Vector2 posAvantSourisDessin = posSourisDessin;
     
+    //---------------------------l'historique--------------------------------
+    
+    int mouvementPresent = GESTURE_NONE;
+    int mouvementPrecedent = mouvementPresent;
+    
+    bool ctrlZ_Active = false;
+    bool ctrlY_Active = false;
+    
+    bool deplacementDansHistorique = false;
+    
+    Image blankHistorique = GetTextureData(dessin.texture);
+    
+    Image* historique = malloc(10*sizeof(Image));
+    historique[0] = blankHistorique;
+    
+    int indiceHistorique = 0;
+    
+    char* textCtrlZ = "CTRL+Z";
+    char* textCtrlY = "CTRL+Y";
+    
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
@@ -183,6 +204,8 @@ int main(void)
         //----------------------------------------------------------------------------------
         
         positionSouris = GetMousePosition();
+        mouvementPrecedent = mouvementPresent;
+        mouvementPresent = GetGestureDetected();
         
         //action entre la souris et les outils
         for (int i = 0; i < NB_OUTILS; i++)
@@ -296,7 +319,7 @@ int main(void)
         if (outilsSelectionnee == 1)
         {
             // zoom
-            deplacement.zoom += ((float)GetMouseWheelMove()*0.05f);
+            deplacement.zoom += ((float)GetMouseWheelMove()*-0.05f);
             
             if (deplacement.zoom > 3.0f) deplacement.zoom = 3.0f;
             else if (deplacement.zoom < 0.1f) deplacement.zoom = 0.1f;
@@ -309,6 +332,37 @@ int main(void)
             if (taillePeinceau > 50) taillePeinceau = 50;
         }
             
+        //gestion de l'historique
+        
+        if (mouvementPrecedent == GESTURE_DRAG && mouvementPresent != GESTURE_DRAG)
+        {
+            if (indiceHistorique < HISTORIQUE - 1 )
+            {
+                indiceHistorique++;
+                historique[indiceHistorique] = GetTextureData(dessin.texture);
+            }
+            else 
+            {
+                for (int i = 2; i < HISTORIQUE; i++)
+                {
+                    historique[i - 1] = historique[i];
+                }
+                historique[HISTORIQUE - 1] = GetTextureData(dessin.texture);
+            }
+        }
+        
+        if (IsKeyDown(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL))
+        {
+            if (indiceHistorique%11 != 0 && ctrlZ_Active == false)
+            {
+            indiceHistorique--;
+            //BeginTextureMode(dessin);
+            dessin.texture = LoadTextureFromImage(historique[indiceHistorique]);
+           // EndTextureMode();   
+            }
+            ctrlZ_Active = true;
+        }
+        else ctrlZ_Active = false;
         
         dessinZoomWidth = widthDessin * deplacement.zoom;
         dessinZoomHeight = heightDessin * deplacement.zoom;
@@ -335,7 +389,7 @@ int main(void)
            BeginMode2D(deplacement);
             
                 //dessine le dessin
-                DrawTextureRec(dessin.texture, (Rectangle){ 25, 25, dessin.texture.width, -dessin.texture.height }, (Vector2){ 25, 25 }, WHITE);
+                DrawTextureRec(dessin.texture, (Rectangle){ 0, 0, dessin.texture.width, -dessin.texture.height }, (Vector2){ 25, 25 }, WHITE);
             
             EndMode2D();
             
@@ -373,6 +427,12 @@ int main(void)
                         DrawTexture(curseurTexture[3], positionSouris.x, positionSouris.y - 24, WHITE);
                         break;
                 }
+            }
+            
+            if (IsKeyDown(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL) )
+            {
+                DrawRectangle(0, screenHeight - 80, 250, 80, Fade(BLACK, 0.7f));
+                DrawText("CTRL+Z", 20, screenHeight -60, 40, WHITE);
             }
             
             // dessine la barre d'outils
@@ -421,6 +481,11 @@ int main(void)
         UnloadTexture(curseurTexture[i]);
     }
     
+    //unload la render texture
+    UnloadImage(blankHistorique);
+    UnloadImage(historique[indiceHistorique]);
+    
+    free(historique);
     
     //--------------------------------------------------------------------------------------
     CloseWindow();        // Close window and OpenGL context
