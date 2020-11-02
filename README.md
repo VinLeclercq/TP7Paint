@@ -1,7 +1,7 @@
 # TP7Paint
  Projet C MLOD paint
 -------------------------------------
- 
+ Fonctionne sur NotePad++ de Raylib
 -------------------------------------Description------------------------------------
 
 Le projet choisit est la rpogrammation d'un logiciel type Paint à partir de la librry Raylib. C'est a dire un logiciel de dessin basique comprenant :
