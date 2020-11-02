@@ -4,7 +4,7 @@
 #define NB_OUTILS  7
 #define NB_COULEUR 24
 #define NB_CURSEUR 4
-#define HISTORIQUE 11
+#define HISTORIQUE 9
 
 int main(void)
 {
@@ -289,6 +289,12 @@ int main(void)
             posSourisDessin.x =  (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
             posSourisDessin.y =  (positionSouris.y - (screenHeight - heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
             
+            //recupération des coordonée en fonction du zoom de la zone de dessin
+            dessinZoomWidth = widthDessin * deplacement.zoom;
+            dessinZoomHeight = heightDessin * deplacement.zoom;
+            dessinZoomX = (screenWidth - dessinZoomWidth) / 2 + (screenWidth/2 - deplacement.target.x)*deplacement.zoom;
+            dessinZoomY = (screenHeight - dessinZoomHeight) / 2  + (screenHeight/2 - deplacement.target.y)*deplacement.zoom;
+            
             if(CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }))
             {
                 switch (outilsSelectionnee)
@@ -362,7 +368,7 @@ int main(void)
         }  
         
         // action du pot de peinture
-        if (outilsSelectionnee == 5 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }) && !CheckCollisionPointRec(positionSouris, barreOutils))//outil seau de remplissage
+        /*if (outilsSelectionnee == 5 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }) && !CheckCollisionPointRec(positionSouris, barreOutils))//outil seau de remplissage
         {
             pixel =  ImageFromImage(historique[indiceHistorique], (Rectangle){ posSourisDessin.x ,posSourisDessin.y, 1, 1 });
             couleurSeau = GetImageData(pixel); //recupération de la couleur a replacer
@@ -370,7 +376,7 @@ int main(void)
             {
                 entreDansLhistorique = true;
                 //recupération de l'image presente pour ne pas l'écraser dans l'historique
-                couleurRemplacee[0] = historique[indiceHistorique]; 
+                *couleurRemplacee = historique[indiceHistorique]; 
                 //remplace la couleur selectionner par la souris par la couleur dans le click gauche
                 ImageColorReplace(couleurRemplacee, *couleurSeau, cGauche);
                 textureCouleurRemplacee = LoadTextureFromImage(*couleurRemplacee);
@@ -384,7 +390,7 @@ int main(void)
                 entreDansLhistorique = true;
                 //recupération de l'image presente pour ne pas l'écraser dans l'historique
                 *couleurRemplacee = historique[indiceHistorique]; 
-                //remplace la couleur selectionner par la souris par la couleur dans le click gauche
+                //remplace la couleur selectionner par la souris par la couleur dans le click droit
                 ImageColorReplace(couleurRemplacee, *couleurSeau, cDroit);
                 textureCouleurRemplacee = LoadTextureFromImage(*couleurRemplacee);
                 BeginTextureMode(dessin);
@@ -393,7 +399,7 @@ int main(void)
                 UnloadTexture(textureCouleurRemplacee);
             }
             UnloadImage(pixel);
-        }
+        }*/
         
         //actions de la mollette de la souris
         if (outilsSelectionnee == 1)
@@ -412,34 +418,6 @@ int main(void)
             if (taillePeinceau > 50) taillePeinceau = 50;
         }
         
-        // outils de sauvegarde
-        if (outilsSelectionnee == 0)
-        {
-            if (compteur == 0)
-            {
-            Image sauvegarde =  GetTextureData(dessin.texture);
-            ImageFlipVertical(&sauvegarde);
-            ExportImage(sauvegarde, "my_painting.png");
-            UnloadImage(sauvegarde);
-            messageDeSauvegarde = true;
-            }
-            else if (compteur > 150)
-            {
-                outilsSelectionnee = outilAvant;
-            }
-        }
-                
-        if(messageDeSauvegarde)
-        {
-           // montre le un message de sauvegarde pendant 2 secondes
-           compteur++;
-           if (compteur > 240)
-           {
-               messageDeSauvegarde =  false;
-               compteur = 0;
-           }
-        }
-        
         //gestion de l'historique
         if ((mouvementPrecedent == GESTURE_DRAG && mouvementPresent != GESTURE_DRAG) || entreDansLhistorique == true)
         {
@@ -448,10 +426,11 @@ int main(void)
                 indiceHistorique++;
                 historique[indiceHistorique] = GetTextureData(dessin.texture);
                 ImageFlipVertical(&historique[indiceHistorique]);
+                for (int i = indiceHistorique + 1; i < HISTORIQUE; i++) UnloadImage(historique[i]);
             }
             else 
             { // decalage de chaque image du tableau et ajout de l'image presente à la fin du tableau
-                UnloadImage(historique[1]);
+                //UnloadImage(historique[1]);
                 for (int i = 2; i < HISTORIQUE; i++)
                 {
                     historique[i - 1] = historique[i];
@@ -495,15 +474,43 @@ int main(void)
         }
         else ctrlY_Active = false;
         
+        // outils de sauvegarde
+        if (outilsSelectionnee == 0)
+        {
+            if (compteur == 0)
+            {
+            Image sauvegarde =  GetTextureData(dessin.texture);
+            ImageFlipVertical(&sauvegarde);
+            ExportImage(sauvegarde, "my_painting.png");
+            UnloadImage(sauvegarde);
+            messageDeSauvegarde = true;
+            }
+            else if (compteur > 150)
+            {
+                outilsSelectionnee = outilAvant;
+            }
+        }
+                
+        if(messageDeSauvegarde)
+        {
+           // montre le un message de sauvegarde pendant 2 secondes
+           compteur++;
+           if (compteur > 240)
+           {
+               messageDeSauvegarde =  false;
+               compteur = 0;
+           }
+        }
+        
         //recupération des coordonée en fonction du zoom de la zone de dessin
         dessinZoomWidth = widthDessin * deplacement.zoom;
         dessinZoomHeight = heightDessin * deplacement.zoom;
-        dessinZoomX = (screenWidth - dessinZoomWidth) / 2;
-        dessinZoomY = (screenHeight - dessinZoomHeight) / 2;
+        dessinZoomX = (screenWidth - dessinZoomWidth) / 2 + (screenWidth/2 - deplacement.target.x)*deplacement.zoom;
+        dessinZoomY = (screenHeight - dessinZoomHeight) / 2  + (screenHeight/2 - deplacement.target.y)*deplacement.zoom;
         
         //récuperation des coordonnées de la souris en fonction du zoom et du déplacement
-        posSourisDessin.x = (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
-        posSourisDessin.y = (positionSouris.y - (screenHeight -  heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
+        posSourisDessin.x = ((positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom) - (screenWidth/2 - deplacement.target.x);
+        posSourisDessin.y = ((positionSouris.y - (screenHeight -  heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom) - (screenHeight/2 - deplacement.target.y);
         
         // valeur tampon
         posAvantSourisDessin = posSourisDessin;
