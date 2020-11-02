@@ -362,7 +362,7 @@ int main(void)
         }  
         
         // action du pot de peinture
-        if (outilsSelectionnee == 5 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }) && !CheckCollisionPointRec(positionSouris, barreOutils))//outil seau de remplissage
+        /*if (outilsSelectionnee == 5 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }) && !CheckCollisionPointRec(positionSouris, barreOutils))//outil seau de remplissage
         {
             pixel =  ImageFromImage(historique[indiceHistorique], (Rectangle){ posSourisDessin.x ,posSourisDessin.y, 1, 1 });
             couleurSeau = GetImageData(pixel); //recupération de la couleur a replacer
@@ -393,7 +393,7 @@ int main(void)
                 UnloadTexture(textureCouleurRemplacee);
             }
             UnloadImage(pixel);
-        }
+        }*/
         
         //actions de la mollette de la souris
         if (outilsSelectionnee == 1)
