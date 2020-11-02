@@ -1,6 +1,14 @@
 # TP7Paint
  Projet C MLOD paint
+ 
 -------------------------------------
+
+ Fonctionne sur NotePad++ de Raylib sous Windows
+ 
+ ----------------------------------Apartée-------------------------------
+ 
+ dans cette version du code, le code de l'outils pot de peinture est en commentaire. Il se trouve qu'une des fonction modifie la mémoire d'une variable ce qui fait crash l'antiereté du programme. Etant donnée que je n'ai aucune idée de comment résoudre ce problème et que l'outils fonctionnerais parfaitement sinon je le laisse à l'interieur du projet.
+ Sur linux il ne crash pas tout de suite et vous pourrais observer sont utilité noralement.
  
 -------------------------------------Description------------------------------------
 
