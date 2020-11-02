@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "stdlib.h"
 
 #define NB_OUTILS  7
 #define NB_COULEUR 24
@@ -81,8 +82,6 @@ int main(void)
         UnloadImage(curseur[i]);
     }
     
-    
-    
     //---------------- les couleurs de la barre d'outils ---------------
     
     //couleurs à choisir
@@ -135,7 +134,7 @@ int main(void)
     //souris en mémoire
     Vector2 positionAvant = positionSouris;
     
-    //---------------------les differents modes---------------------
+    //---------------------la gestion des differents outils---------------------
     
     // initialisation du tableau permettant de savoir sous quel mode l'utilisateur est
     bool modeOutils[NB_OUTILS];
@@ -147,6 +146,7 @@ int main(void)
     
     int outilsSousSouris = -1; // -1 pas d'outils
     int outilsSelectionnee = 2; // initialisation avec le pinceau selectionné
+    int outilAvant =  outilsSelectionnee;
     
     //--------------------le mode camera-----------------------
     
@@ -176,23 +176,47 @@ int main(void)
     
     //---------------------------l'historique--------------------------------
     
+    //variable qui récupère le geste de la souris
     int mouvementPresent = GESTURE_NONE;
     int mouvementPrecedent = mouvementPresent;
     
+    //variable permettant de savoir si un deplacement dans l'historique est en cours
     bool ctrlZ_Active = false;
     bool ctrlY_Active = false;
     
-    bool deplacementDansHistorique = false;
-    
+    bool entreDansLhistorique = false;
+    //premiere image (blanche) de l'historique
     Image blankHistorique = GetTextureData(dessin.texture);
     
+    //tableau d'image pour l'historique
     Image* historique = malloc(10*sizeof(Image));
     historique[0] = blankHistorique;
     
+    //emplacement de l'image afficher dans l'historique
     int indiceHistorique = 0;
     
-    char* textCtrlZ = "CTRL+Z";
-    char* textCtrlY = "CTRL+Y";
+    Texture2D textureHistorique;
+    
+    //---------------------------l'outil pipette & seau------------------------
+    
+    // image sous forme d'un pixel unique
+    Image pixel;
+    
+    //rvariable pour récupérer l'image avec la couleur remplacer pour le pot de peinture
+    Image* couleurRemplacee = malloc(sizeof(Image));
+    Texture2D textureCouleurRemplacee;
+    
+    //couleur récupérer par la pipette
+    Color* couleurPipette = malloc(sizeof(Color));
+    
+    //couleur récupérer par le pot de peinture
+    Color* couleurSeau = malloc(sizeof(Color));
+    
+    //---------------------------la sauvegarde---------------------------
+    
+    // indiquateur pour permettre d'afficher le message de sauvegarde ou non
+    bool messageDeSauvegarde = false;
+    int compteur = 0;
     
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
@@ -202,6 +226,7 @@ int main(void)
     {
         // Update
         //----------------------------------------------------------------------------------
+        
         
         positionSouris = GetMousePosition();
         mouvementPrecedent = mouvementPresent;
@@ -215,7 +240,11 @@ int main(void)
                 outilsSousSouris = i; 
                 
                 //choix de l'outils avec la souris
-                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) outilsSelectionnee = i;
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) 
+                {
+                    outilAvant = outilsSelectionnee;
+                    outilsSelectionnee = i;
+                }
                 break; // sort de la boucle, gain de temps
             }
             else outilsSousSouris = -1; // aucun outils
@@ -229,15 +258,22 @@ int main(void)
                 couleurSousSouris = i;
                 
                 //choix des couleurs en fonctions du bouton de la souris
-                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) couleurSelectionneeGauche = i;
-                else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON) && GetGestureDetected() == GESTURE_TAP) couleurSelectionneeDroit = i;
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && GetGestureDetected() == GESTURE_TAP) 
+                {
+                    couleurSelectionneeGauche = i;
+                    cGauche = choixCouleur[couleurSelectionneeGauche];
+                }
+                else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON) && GetGestureDetected() == GESTURE_TAP) 
+                {
+                    couleurSelectionneeDroit = i;
+                    cDroit = choixCouleur[couleurSelectionneeDroit];
+                }
                 break;
             }
             else couleurSousSouris = -1; // aucune couleur
         }
         // récupération des couleurs choisies
-        cDroit = choixCouleur[couleurSelectionneeDroit];
-        cGauche = choixCouleur[couleurSelectionneeGauche];
+        
         
         
         // action pour un click gauche appuyé
@@ -258,60 +294,84 @@ int main(void)
                 switch (outilsSelectionnee)
                 {
   
-                    case 2 :
+                    case 2 : // outil pinceau rond
                         BeginTextureMode(dessin);
                         DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cGauche);
                         DrawLineEx(posAvantSourisDessin, posSourisDessin,2 * taillePeinceau, cGauche);
                         EndTextureMode();
                         break;
                         
-                    case 3 :
+                    case 3 : // outils peinceau carré
                         BeginTextureMode(dessin);
                         DrawRectangle(posSourisDessin.x - taillePeinceau/2, posSourisDessin.y - taillePeinceau/2,  taillePeinceau, taillePeinceau, cGauche);
                         DrawLineEx(posAvantSourisDessin, posSourisDessin, taillePeinceau, cGauche);
                         EndTextureMode();
                         break;
                         
-                    case 4 :
+                    case 4 : // outil gomme
                         BeginTextureMode(dessin);
                         DrawCircle(posSourisDessin.x, posSourisDessin.y,  taillePeinceau, WHITE);
                         DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, WHITE);
                         EndTextureMode();
-                        break;
-                        
-                        
-                    case 5 :
-                        
-                        break;
-                        
-                    case 6 :
                         break;
                     
                 }
             }
         }
         
+        // action du click droit
         if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON) && (GetGestureDetected() == GESTURE_DRAG))
         {   
+            posSourisDessin.x =  (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
+            posSourisDessin.y =  (positionSouris.y - (screenHeight - heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
+            
             if(CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }))
             {
                 switch (outilsSelectionnee)
                 {
   
-                    case 2 :
+                    case 2 : // outils pinceau rond
                         BeginTextureMode(dessin);
                         DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cDroit);
-                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, cDroit);
+                        DrawLineEx(posAvantSourisDessin, posSourisDessin,2 * taillePeinceau, cDroit);
                         EndTextureMode();
                         break;
                         
-                    case 3 :
+                    case 3 : // our peinceau carré
                         BeginTextureMode(dessin);
-                        DrawRectangle(posSourisDessin.x, posSourisDessin.y - taillePeinceau,  taillePeinceau, taillePeinceau, cDroit);
-                        DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, cDroit);
+                        DrawRectangle(posSourisDessin.x - taillePeinceau/2, posSourisDessin.y - taillePeinceau/2,  taillePeinceau, taillePeinceau, cDroit);
+                        DrawLineEx(posAvantSourisDessin, posSourisDessin, taillePeinceau, cDroit);
                         EndTextureMode();
                         break;
                 }
+            }
+        }
+        
+        //action de la pipette
+        if (outilsSelectionnee == 6 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight })) //pipette
+        {
+            //recupération du pixel sur lequel la souris est placée
+            pixel =  ImageFromImage(historique[indiceHistorique], (Rectangle){ posSourisDessin.x ,posSourisDessin.y, 1, 1 });
+            couleurPipette = GetImageData(pixel); //recupération de la couleur du pixel
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))cGauche = *couleurPipette;
+            else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))cDroit = *couleurPipette;
+        }  
+        
+        // action du pot de peinture
+        if (outilsSelectionnee == 5 && CheckCollisionPointRec(positionSouris, (Rectangle){ dessinZoomX, dessinZoomY, dessinZoomWidth, dessinZoomHeight }) && !CheckCollisionPointRec(positionSouris, barreOutils))//outil seau de remplissage
+        {
+            pixel =  ImageFromImage(historique[indiceHistorique], (Rectangle){ posSourisDessin.x ,posSourisDessin.y, 1, 1 });
+            couleurSeau = GetImageData(pixel); //recupération de la couleur a replacer
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+            {
+                //recupération de l'image presente pour ne pas l'écraser dans l'historique
+                *couleurRemplacee = historique[indiceHistorique]; 
+                //remplace la couleur selectionner par la souris par la couleur dans le click gauche
+                ImageColorReplace(couleurRemplacee, *couleurSeau, cGauche);
+                textureCouleurRemplacee = LoadTextureFromImage(*couleurRemplacee);
+                BeginTextureMode(dessin);
+                DrawTexture(textureCouleurRemplacee, 0, 0, WHITE); //dessine la nouvelle texture sur le dessin
+                EndTextureMode();
             }
         }
         
@@ -331,50 +391,98 @@ int main(void)
             if (taillePeinceau < 2) taillePeinceau = 2;
             if (taillePeinceau > 50) taillePeinceau = 50;
         }
-            
-        //gestion de l'historique
         
+        // outils de sauvegarde
+        if (outilsSelectionnee == 0)
+        {
+            if (compteur == 0)
+            {
+            Image sauvegarde =  GetTextureData(dessin.texture);
+            ImageFlipVertical(&sauvegarde);
+            ExportImage(sauvegarde, "my_painting.png");
+            UnloadImage(sauvegarde);
+            messageDeSauvegarde = true;
+            }
+            else if (compteur > 150)
+            {
+                outilsSelectionnee = outilAvant;
+            }
+        }
+                
+        if(messageDeSauvegarde)
+        {
+           // montre le un message de sauvegarde pendant 2 secondes
+           compteur++;
+           if (compteur > 240)
+           {
+               messageDeSauvegarde =  false;
+               compteur = 0;
+           }
+        }
+        
+        //gestion de l'historique
         if (mouvementPrecedent == GESTURE_DRAG && mouvementPresent != GESTURE_DRAG)
         {
-            if (indiceHistorique < HISTORIQUE - 1 )
+            if (indiceHistorique < HISTORIQUE - 1 ) // ajout de la texture du dessin à la suite du tableau
             {
                 indiceHistorique++;
                 historique[indiceHistorique] = GetTextureData(dessin.texture);
+                ImageFlipVertical(&historique[indiceHistorique]);
             }
             else 
-            {
+            { // decalage de chaque image du tableau et ajout de l'image presente à la fin du tableau
+                UnloadImage(historique[1]);
                 for (int i = 2; i < HISTORIQUE; i++)
                 {
                     historique[i - 1] = historique[i];
                 }
                 historique[HISTORIQUE - 1] = GetTextureData(dessin.texture);
+                ImageFlipVertical(&historique[HISTORIQUE-1]);
             }
         }
         
+        // gestion du crtl-z W = Z sur le QWERTY
         if (IsKeyDown(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL))
         {
-            if (indiceHistorique%11 != 0 && ctrlZ_Active == false)
+            if (indiceHistorique != 0 && ctrlZ_Active == false)
             {
-            indiceHistorique--;
-            //BeginTextureMode(dessin);
-            dessin.texture = LoadTextureFromImage(historique[indiceHistorique]);
-           // EndTextureMode();   
+                indiceHistorique--;
+                textureHistorique = LoadTextureFromImage(historique[indiceHistorique]); 
+                BeginTextureMode(dessin);
+                DrawTexture(textureHistorique, 0, 0, WHITE);
+                EndTextureMode();
             }
             ctrlZ_Active = true;
         }
         else ctrlZ_Active = false;
         
+        //gestion du ctrl-Y
+        if (IsKeyDown(KEY_Y) && IsKeyDown(KEY_LEFT_CONTROL))
+        {
+            if(indiceHistorique != HISTORIQUE - 1 && ctrlY_Active == false)
+            {
+                indiceHistorique++;
+                textureHistorique = LoadTextureFromImage(historique[indiceHistorique]); 
+                BeginTextureMode(dessin);
+                DrawTexture(textureHistorique, 0, 0, WHITE);
+                EndTextureMode();
+            }
+            ctrlY_Active = true;
+        }
+        else ctrlY_Active = false;
+        
+        //recupération des coordonée en fonction du zoom de la zone de dessin
         dessinZoomWidth = widthDessin * deplacement.zoom;
         dessinZoomHeight = heightDessin * deplacement.zoom;
-        
         dessinZoomX = (screenWidth - dessinZoomWidth) / 2;
         dessinZoomY = (screenHeight - dessinZoomHeight) / 2;
         
+        //récuperation des coordonnées de la souris en fonction du zoom et du déplacement
         posSourisDessin.x = (positionSouris.x - (screenWidth - deplacement.zoom * widthDessin) / 2 ) / deplacement.zoom - (screenWidth/2 - deplacement.target.x);
         posSourisDessin.y = (positionSouris.y - (screenHeight -  heightDessin * deplacement.zoom) / 2 ) / deplacement.zoom - (screenHeight/2 - deplacement.target.y);
         
+        // valeur tampon
         posAvantSourisDessin = posSourisDessin;
-        
         positionAvant = positionSouris;
         targetAvant = deplacement.target;
         
@@ -394,7 +502,7 @@ int main(void)
             EndMode2D();
             
             if (outilsSelectionnee == 1)
-            {
+            {   // curseur de l'outils deplacement
                 DrawTexture(curseurTexture[0], positionSouris.x, positionSouris.y, WHITE);
             }
             
@@ -404,35 +512,49 @@ int main(void)
                 switch (outilsSelectionnee)
                 {
                     
-                    case 2 :
+                    case 2 : // outils peinceau rond
                         if(IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) DrawCircleLines(positionSouris.x, positionSouris.y, taillePeinceau, cDroit);
-                        else DrawCircleLines(GetMouseX(), GetMouseY(), taillePeinceau, cGauche);
+                        else DrawCircleLines(GetMouseX(), GetMouseY(), taillePeinceau * deplacement.zoom, cGauche);
                         break;
                     
-                    case 3 :
-                        if(IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) DrawRectangleLines(positionSouris.x - taillePeinceau/2, positionSouris.y - taillePeinceau/2, taillePeinceau, taillePeinceau, cDroit);
-                        else DrawRectangleLines(positionSouris.x - taillePeinceau/2, positionSouris.y - taillePeinceau/2, taillePeinceau , taillePeinceau, cGauche);
+                    case 3 : // outils peinceau carré
+                        if(IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) DrawRectangleLines(positionSouris.x - (taillePeinceau / 2 * deplacement.zoom), positionSouris.y - (taillePeinceau / 2 * deplacement.zoom), taillePeinceau * deplacement.zoom, taillePeinceau * deplacement.zoom, cDroit);
+                        else DrawRectangleLines(positionSouris.x - (taillePeinceau / 2 * deplacement.zoom), positionSouris.y - (taillePeinceau / 2 * deplacement.zoom), taillePeinceau * deplacement.zoom , taillePeinceau * deplacement.zoom, cGauche);
                         break;
                     
-                    case 4 :
-                        DrawCircleLines(GetMouseX(), GetMouseY(), taillePeinceau, BLACK);
+                    case 4 : // outil gomme
+                        DrawCircleLines(GetMouseX(), GetMouseY(), taillePeinceau * deplacement.zoom, BLACK);
                         DrawTexture(curseurTexture[1], positionSouris.x + taillePeinceau/2 + 2, positionSouris.y + taillePeinceau/2 + 2, WHITE);
                         break;
                     
-                    case 5 :
+                    case 5 : // ourils seau de remplissage
                         DrawTexture(curseurTexture[2], positionSouris.x - 24, positionSouris.y - 24, WHITE);
                         break;
                     
-                    case 6 :
+                    case 6 : // outils pipette
                         DrawTexture(curseurTexture[3], positionSouris.x, positionSouris.y - 24, WHITE);
                         break;
                 }
             }
             
-            if (IsKeyDown(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL) )
+            if (messageDeSauvegarde == true) // affichage du message de sauvegarde
+            {
+                DrawRectangle(screenWidth / 2 - 310, screenHeight / 2 - 20, 620, 80, Fade(BLACK, 0.7f));
+                DrawText("dessin Sauvegardé!", screenWidth / 2 - 290, screenHeight / 2 - 10, 60, WHITE);
+            }
+            
+            // affichage du message ctrl-z
+            if (IsKeyDown(KEY_W) && IsKeyDown(KEY_LEFT_CONTROL) ) 
             {
                 DrawRectangle(0, screenHeight - 80, 250, 80, Fade(BLACK, 0.7f));
                 DrawText("CTRL+Z", 20, screenHeight -60, 40, WHITE);
+            }
+            
+            // affichage du message ctrl-y
+            if (IsKeyDown(KEY_Y) && IsKeyDown(KEY_LEFT_CONTROL) )
+            {
+                DrawRectangle(0, screenHeight - 80, 250, 80, Fade(BLACK, 0.7f));
+                DrawText("CTRL+Y", 20, screenHeight -60, 40, WHITE);
             }
             
             // dessine la barre d'outils
@@ -484,9 +606,17 @@ int main(void)
     //unload la render texture
     UnloadImage(blankHistorique);
     UnloadImage(historique[indiceHistorique]);
+    UnloadImage(pixel);
+    
+    UnloadImage(couleurRemplacee[0]);
+    UnloadTexture(textureCouleurRemplacee);
+    UnloadTexture(textureHistorique);
     
     free(historique);
+    free(couleurPipette);
+    free(couleurSeau);
     
+    UnloadRenderTexture(dessin);
     //--------------------------------------------------------------------------------------
     CloseWindow();        // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
