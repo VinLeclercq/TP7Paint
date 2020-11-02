@@ -203,14 +203,14 @@ int main(void)
     Image pixel;
     
     //rvariable pour récupérer l'image avec la couleur remplacer pour le pot de peinture
-    Image* couleurRemplacee = malloc(sizeof(Image));
+    Image* couleurRemplacee;
     Texture2D textureCouleurRemplacee;
     
     //couleur récupérer par la pipette
-    Color* couleurPipette = malloc(sizeof(Color));
+    Color* couleurPipette;
     
     //couleur récupérer par le pot de peinture
-    Color* couleurSeau = malloc(sizeof(Color));
+    Color* couleurSeau;
     
     //---------------------------la sauvegarde---------------------------
     
@@ -296,8 +296,9 @@ int main(void)
   
                     case 2 : // outil pinceau rond
                         BeginTextureMode(dessin);
-                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cGauche);
+                        DrawCircle(posAvantSourisDessin.x, posAvantSourisDessin.y, taillePeinceau, cGauche);
                         DrawLineEx(posAvantSourisDessin, posSourisDessin,2 * taillePeinceau, cGauche);
+                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cGauche);
                         EndTextureMode();
                         break;
                         
@@ -310,8 +311,9 @@ int main(void)
                         
                     case 4 : // outil gomme
                         BeginTextureMode(dessin);
-                        DrawCircle(posSourisDessin.x, posSourisDessin.y,  taillePeinceau, WHITE);
+                        DrawCircle(posAvantSourisDessin.x, posAvantSourisDessin.y,  taillePeinceau, WHITE);
                         DrawLineEx((Vector2){ posAvantSourisDessin.x, posAvantSourisDessin.y}, (Vector2){ posSourisDessin.x, posSourisDessin.y },2 * taillePeinceau, WHITE);
+                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, WHITE);
                         EndTextureMode();
                         break;
                     
@@ -332,8 +334,9 @@ int main(void)
   
                     case 2 : // outils pinceau rond
                         BeginTextureMode(dessin);
-                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cDroit);
+                        DrawCircle(posAvantSourisDessin.x, posAvantSourisDessin.y, taillePeinceau, cDroit);
                         DrawLineEx(posAvantSourisDessin, posSourisDessin,2 * taillePeinceau, cDroit);
+                        DrawCircle(posSourisDessin.x, posSourisDessin.y, taillePeinceau, cDroit);
                         EndTextureMode();
                         break;
                         
@@ -355,6 +358,7 @@ int main(void)
             couleurPipette = GetImageData(pixel); //recupération de la couleur du pixel
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))cGauche = *couleurPipette;
             else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))cDroit = *couleurPipette;
+            UnloadImage(pixel);
         }  
         
         // action du pot de peinture
@@ -364,15 +368,31 @@ int main(void)
             couleurSeau = GetImageData(pixel); //recupération de la couleur a replacer
             if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
             {
+                entreDansLhistorique = true;
                 //recupération de l'image presente pour ne pas l'écraser dans l'historique
-                *couleurRemplacee = historique[indiceHistorique]; 
+                couleurRemplacee[0] = historique[indiceHistorique]; 
                 //remplace la couleur selectionner par la souris par la couleur dans le click gauche
                 ImageColorReplace(couleurRemplacee, *couleurSeau, cGauche);
                 textureCouleurRemplacee = LoadTextureFromImage(*couleurRemplacee);
                 BeginTextureMode(dessin);
                 DrawTexture(textureCouleurRemplacee, 0, 0, WHITE); //dessine la nouvelle texture sur le dessin
                 EndTextureMode();
+                UnloadTexture(textureCouleurRemplacee);
             }
+            else if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
+            {
+                entreDansLhistorique = true;
+                //recupération de l'image presente pour ne pas l'écraser dans l'historique
+                *couleurRemplacee = historique[indiceHistorique]; 
+                //remplace la couleur selectionner par la souris par la couleur dans le click gauche
+                ImageColorReplace(couleurRemplacee, *couleurSeau, cDroit);
+                textureCouleurRemplacee = LoadTextureFromImage(*couleurRemplacee);
+                BeginTextureMode(dessin);
+                DrawTexture(textureCouleurRemplacee, 0, 0, WHITE); //dessine la nouvelle texture sur le dessin
+                EndTextureMode();
+                UnloadTexture(textureCouleurRemplacee);
+            }
+            UnloadImage(pixel);
         }
         
         //actions de la mollette de la souris
@@ -421,7 +441,7 @@ int main(void)
         }
         
         //gestion de l'historique
-        if (mouvementPrecedent == GESTURE_DRAG && mouvementPresent != GESTURE_DRAG)
+        if ((mouvementPrecedent == GESTURE_DRAG && mouvementPresent != GESTURE_DRAG) || entreDansLhistorique == true)
         {
             if (indiceHistorique < HISTORIQUE - 1 ) // ajout de la texture du dessin à la suite du tableau
             {
@@ -439,6 +459,7 @@ int main(void)
                 historique[HISTORIQUE - 1] = GetTextureData(dessin.texture);
                 ImageFlipVertical(&historique[HISTORIQUE-1]);
             }
+            entreDansLhistorique = false;
         }
         
         // gestion du crtl-z W = Z sur le QWERTY
@@ -451,6 +472,8 @@ int main(void)
                 BeginTextureMode(dessin);
                 DrawTexture(textureHistorique, 0, 0, WHITE);
                 EndTextureMode();
+                UnloadTexture(textureHistorique);
+       
             }
             ctrlZ_Active = true;
         }
@@ -466,6 +489,7 @@ int main(void)
                 BeginTextureMode(dessin);
                 DrawTexture(textureHistorique, 0, 0, WHITE);
                 EndTextureMode();
+                UnloadTexture(textureHistorique);
             }
             ctrlY_Active = true;
         }
@@ -610,11 +634,6 @@ int main(void)
     
     UnloadImage(couleurRemplacee[0]);
     UnloadTexture(textureCouleurRemplacee);
-    UnloadTexture(textureHistorique);
-    
-    free(historique);
-    free(couleurPipette);
-    free(couleurSeau);
     
     UnloadRenderTexture(dessin);
     //--------------------------------------------------------------------------------------
